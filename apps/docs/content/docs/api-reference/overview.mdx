@@ -23,6 +23,10 @@ export const contextColors = {
 ## Cloud
 
 - [`AssistantCloud`](#assistant-cloud)
+- [`AssistantCloudAuthStrategy`](#assistant-cloud-auth-strategy)
+- [`AssistantCloudJWTAuthStrategy`](#assistant-cloud-jwt-auth-strategy)
+- [`AssistantCloudAPIKeyAuthStrategy`](#assistant-cloud-api-key-auth-strategy)
+- [`AssistantCloudAnonAuthStrategy`](#assistant-cloud-anon-auth-strategy)
 
 ## Runtime API
 
@@ -540,48 +544,3 @@ Manages the state and actions for individual thread list items
 - [`useThreadListItemRuntime`](#use-thread-list-item-runtime)
 
 ### ThreadListItem
-
-<Component
-  name="ThreadListItemPrimitive.Root"
-  docsLink="#thread-list-item-primitive-root"
-  tooltip="Root component for a thread list item"
->
-  <Component
-    name="ThreadListItemPrimitive.Trigger"
-    docsLink="#thread-list-item-primitive-trigger"
-    tooltip="Trigger for thread list item actions"
-  >
-    <Component
-      name="ThreadListItemPrimitive.Name"
-      docsLink="#thread-list-item-primitive-name"
-      tooltip="Displays the name of the thread"
-    />
-  </Component>
-  <Component
-    name="ThreadListItemPrimitive.Archive"
-    docsLink="#thread-list-item-primitive-archive"
-    tooltip="Archives the thread"
-  />
-  <Component
-    name="ThreadListItemPrimitive.Unarchive"
-    docsLink="#thread-list-item-primitive-unarchive"
-    tooltip="Unarchives the thread"
-  />
-  <Component
-    name="ThreadListItemPrimitive.Delete"
-    docsLink="#thread-list-item-primitive-delete"
-    tooltip="Deletes the thread"
-  />
-  <Component
-    name="ThreadListItemPrimitive.Rename"
-    docsLink="#thread-list-item-primitive-rename"
-    tooltip="Renames the thread"
-  />
-</Component>
-
-</ContextLevel>
-
-## Utilities
-
-- [`useThreadViewportAutoscroll`](#use-thread-viewport-autoscroll)
-- [`useInlineRender`](#use-inline-render)
