@@ -28,3 +28,192 @@ const MyApp = () => {
 #### Properties
 
 <ParametersTable {...AssistantRuntimeProvider} />
+
+#### Code Changes
+
+The `AssistantCloudAPI` class has been updated to include a new `AssistantCloudAnonymousAuthStrategy` for anonymous authentication. This strategy is used when the `anonymous` property is set to `true` in the `AssistantCloudConfig`.
+
+The `AssistantCloudAuthStrategy` now includes an additional strategy type `"anon"` for anonymous authentication.
+
+The `AssistantCloudAPI` class now throws an error if an invalid configuration is provided. A valid configuration must provide either an `authToken`, an `apiKey`, or an `anonymous` configuration.
+
+The `AssistantCloudAnonAuthStrategy` class has been added to handle anonymous authentication. This class includes methods to get authorization headers and read authorization headers.
+
+The `useCloudThreadListAdapter` function now includes an `autoAdapter` that uses the `AssistantCloud` class with the `baseUrl` and `authToken` set to `null`.
+
+```diff
+diff --git a/packages/react/src/cloud/AssistantCloudAPI.tsx b/packages/react/src/cloud/AssistantCloudAPI.tsx
+--- a/packages/react/src/cloud/AssistantCloudAPI.tsx
++++ b/packages/react/src/cloud/AssistantCloudAPI.tsx
+@@ -2,6 +2,7 @@ import {
+   AssistantCloudAuthStrategy,
+   AssistantCloudJWTAuthStrategy,
+   AssistantCloudAPIKeyAuthStrategy,
++  AssistantCloudAnonymousAuthStrategy,
+ } from "./AssistantCloudAuthStrategy";
+ 
+ export type AssistantCloudConfig =
+@@ -13,6 +14,10 @@ export type AssistantCloudConfig =
+       apiKey: string;
+       userId: string;
+       workspaceId: string;
++    }
++  | {
++      baseUrl: string;
++      anonymous: true;
+     };
+ 
+ class CloudAPIError extends Error {
+@@ -37,13 +42,20 @@ export class AssistantCloudAPI {
+     if ("authToken" in config) {
+       this._baseUrl = config.baseUrl;
+       this._auth = new AssistantCloudJWTAuthStrategy(config.authToken);
+-    } else {
++    } else if ("apiKey" in config) {
+       this._baseUrl = "https://backend.assistant-api.com";
+       this._auth = new AssistantCloudAPIKeyAuthStrategy(
+         config.apiKey,
+         config.userId,
+         config.workspaceId,
+       );
++    } else if ("anonymous" in config) {
++      this._baseUrl = config.baseUrl;
++      this._auth = new AssistantCloudAnonymousAuthStrategy(config.baseUrl);
++    } else {
++      throw new Error(
++        "Invalid configuration: Must provide authToken, apiKey, or anonymous configuration",
++      );
+     }
+   }
+ 
+diff --git a/packages/react/src/cloud/AssistantCloudAuthStrategy.tsx b/packages/react/src/cloud/AssistantCloudAuthStrategy.tsx
+--- a/packages/react/src/cloud/AssistantCloudAuthStrategy.tsx
++++ b/packages/react/src/cloud/AssistantCloudAuthStrategy.tsx
+@@ -1,5 +1,5 @@
+ export type AssistantCloudAuthStrategy = {
+-  readonly strategy: "jwt" | "api-key";
++  readonly strategy: "anon" | "jwt" | "api-key";
+   getAuthHeaders(): Promise<Record<string, string> | false>;
+   readAuthHeaders(headers: Headers): void;
+ };
+@@ -112,3 +112,104 @@ export class AssistantCloudAPIKeyAuthStrategy
+     // noop
+   }
+ }
++
++export class AssistantCloudAnonAuthStrategy
++  implements AssistantCloudAuthStrategy
++{
++  public readonly strategy = "anon";
++
++  private baseUrl: string;
++  private cachedToken: string | null = null;
++  private tokenExpiry: number | null = null;
++
++  constructor(baseUrl: string) {
++    this.baseUrl = baseUrl;
++  }
++
++  private getJwtExpiry(jwt: string): number {
++    try {
++      const bodyPart = jwt.split(".").at(1);
++      if (!bodyPart) {
++        throw new Error("Invalid JWT format");
++      }
++
++      const payload = Buffer.from(
++        bodyPart.replace(/-/g, "+").replace(/_/g, "/"),
++        "base64",
++      ).toString();
++      const payloadObj = JSON.parse(payload);
++
++      const exp = payloadObj.exp;
++      if (!exp || typeof exp !== "number") {
++        throw new Error('JWT does not contain a valid "exp" field');
++      }
++
++      return exp * 1000; // Convert to milliseconds
++    } catch (error) {
++      throw new Error("Unable to determine the token expiry " + error);
++    }
++  }
++
++  public async getAuthHeaders(): Promise<Record<string, string> | false> {
++    const currentTime = Date.now();
++    const storedRefreshToken = localStorage.getItem("refresh_token");
++
++    // Check if cached access token is valid for at least 30 seconds
++    if (
++      this.cachedToken &&
++      this.tokenExpiry &&
++      this.tokenExpiry - currentTime > 30 * 1000
++    ) {
++      return { Authorization: `Bearer ${this.cachedToken}` };
++    }
++
++    if (storedRefreshToken) {
++      try {
++        const refreshExpiry = this.getJwtExpiry(storedRefreshToken);
++        if (refreshExpiry - currentTime > 30 * 1000) {
++          return { Authorization: `Bearer ${storedRefreshToken}` };
++        }
++      } catch {
++        localStorage.removeItem("refresh_token"); // Clear invalid token
++      }
++    }
++
++    // No valid token, request a new one
++    const response = await fetch(`${this.baseUrl}/v1/auth/tokens/anonymous`, {
++      method: "POST",
++    });
++
++    if (!response.ok) {
++      return false;
++    }
++
++    const data = await response.json();
++    const { access_token, refresh_token } = data;
++
++    if (!access_token || !refresh_token) {
++      return false;
++    }
++
++    this.cachedToken = access_token;
++    this.tokenExpiry = this.getJwtExpiry(access_token);
++    localStorage.setItem("refresh_token", refresh_token);
++
++    return { Authorization: `Bearer ${access_token}` };
++  }
++
++  public readAuthHeaders(headers: Headers): void {
++    const authHeader = headers.get("Authorization");
++    if (authHeader) {
++      const [scheme, token] = authHeader.split(" ");
++      if (scheme === "Bearer" && token) {
++        this.cachedToken = token;
++        this.tokenExpiry = this.getJwtExpiry(token);
++      }
++    }
++
++    const refreshHeader = headers.get("Aui-Refresh-Token");
++    if (refreshHeader) {
++      localStorage.setItem("refresh_token", refreshHeader);
++    }
++  }
++}
+diff --git a/packages/react/src/runtimes/remote-thread-list/adapter/cloud.tsx b/packages/react/src/runtimes/remote-thread-list/adapter/cloud.tsx
+--- a/packages/react/src/runtimes/remote-thread-list/adapter/cloud.tsx
++++ b/packages/react/src/runtimes/remote-thread-list/adapter/cloud.tsx
+@@ -23,6 +23,11 @@ type CloudThreadListAdapterOptions = {
+   delete?(threadId: string): Promise<void>;
+ };
+ 
++const baseUrl = process.env["NEXT_PUBLIC_ASSISTANT_BASE_URL"];
++const autoAdapter = baseUrl
++  ? new AssistantCloud({ baseUrl, authToken: null })
++  : undefined;
++
+ export const useCloudThreadListAdapter = (
+   adapter: CloudThreadListAdapterOptions,
+ ): RemoteThreadListAdapter => {
+```
