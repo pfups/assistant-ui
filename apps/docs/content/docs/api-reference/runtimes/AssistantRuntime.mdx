@@ -31,3 +31,66 @@ const webSearchToolUI = useToolUIs((m) => m.getToolUI("web_search"));
 ```
 
 <ParametersTable {...AssistantToolUIsState} />
+
+### AssistantCloudAPI
+
+The `AssistantCloudAPI` class has been updated to include a new authentication strategy: `AssistantCloudAnonymousAuthStrategy`. This strategy allows for anonymous authentication when interacting with the Assistant API.
+
+The `AssistantCloudAPI` class now accepts three types of configurations:
+
+- JWT Authentication: Provide an `authToken` and `baseUrl`.
+- API Key Authentication: Provide an `apiKey`, `userId`, and `workspaceId`.
+- Anonymous Authentication: Provide a `baseUrl` and set `anonymous` to `true`.
+
+```tsx
+import { AssistantCloudAPI } from "@assistant-ui/react";
+
+const api = new AssistantCloudAPI({
+  baseUrl: "https://backend.assistant-api.com",
+  authToken: "your_auth_token",
+});
+
+// or
+
+const api = new AssistantCloudAPI({
+  apiKey: "your_api_key",
+  userId: "your_user_id",
+  workspaceId: "your_workspace_id",
+});
+
+// or
+
+const api = new AssistantCloudAPI({
+  baseUrl: "https://backend.assistant-api.com",
+  anonymous: true,
+});
+```
+
+If none of the above configurations are provided, an error will be thrown.
+
+### AssistantCloudAuthStrategy
+
+The `AssistantCloudAuthStrategy` type now includes a new strategy: `"anon"`. This strategy is used by the `AssistantCloudAnonymousAuthStrategy` class.
+
+### AssistantCloudAnonymousAuthStrategy
+
+The `AssistantCloudAnonymousAuthStrategy` class implements the `AssistantCloudAuthStrategy` interface for anonymous authentication. It uses a JWT token for authentication, which can be cached and refreshed as needed.
+
+```tsx
+import { AssistantCloudAnonymousAuthStrategy } from "@assistant-ui/react";
+
+const auth = new AssistantCloudAnonymousAuthStrategy("https://backend.assistant-api.com");
+```
+
+### CloudThreadListAdapterOptions
+
+The `CloudThreadListAdapterOptions` type has been updated to include an `autoAdapter` option. This option automatically creates an `AssistantCloud` instance if the `NEXT_PUBLIC_ASSISTANT_BASE_URL` environment variable is set.
+
+```tsx
+import { useCloudThreadListAdapter } from "@assistant-ui/react";
+
+const adapter = useCloudThreadListAdapter({
+  baseUrl: process.env["NEXT_PUBLIC_ASSISTANT_BASE_URL"],
+  authToken: null,
+});
+```
