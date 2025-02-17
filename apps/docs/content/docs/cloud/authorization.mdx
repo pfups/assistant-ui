@@ -2,7 +2,7 @@
 title: User Authorization
 ---
 
-The assistant-ui API can be directly accessed by your frontend. This elliminates the need for a backend server from your side, except for authorization of your users.
+The assistant-ui API can be directly accessed by your frontend. This eliminates the need for a backend server from your side, except for authorization of your users.
 
 This document explains how you can setup your server to authorize users to access the assistant-ui API.
 
@@ -16,10 +16,11 @@ For example, if your app supports multiple "projects", you might want to use the
 assistant-ui issues workspace auth tokens. These tokens give access to the assistant-ui API for a specific workspace.
 Tokens are short lived (5 minutes), so the client needs to periodically request a new token (handled by assistant-ui).
 
-There are two supported approaches to obtain a workspace auth token:
+There are three supported approaches to obtain a workspace auth token:
 
 - Direct integration with your auth provider
 - From a backend server / serverless function
+- Anonymous authentication
 
 ### Choosing the right approach
 
@@ -36,8 +37,14 @@ Backend server:
 - supports self hosted auth solutions, e.g. Auth.js
 - requires a backend server / serverless function
 
-You can always switch between the two approaches without any downtime or necessary database migrations.
-Choose direct integration with your auth provider if you can. Otherwise, use a backend server.
+Anonymous authentication:
+
+- simplest to setup
+- does not require a user to be authenticated
+- suitable for public access areas of your application
+
+You can always switch between the three approaches without any downtime or necessary database migrations.
+Choose direct integration with your auth provider if you can. Otherwise, use a backend server or anonymous authentication as per your requirements.
 
 ### Auth Provider Integration
 
@@ -90,3 +97,20 @@ const assistantCloud = new AssistantCloud({
     fetch("/api/assistant-ui-token", { method: "POST" }).then((r) => r.json()),
 });
 ```
+
+### Anonymous Authentication
+
+For anonymous authentication, you can use the `AssistantCloudAnonymousAuthStrategy` class. This class handles the process of obtaining and refreshing anonymous tokens.
+
+Here is an example of how to use it:
+
+```ts
+import { AssistantCloud } from "@assistant-ui/cloud";
+
+const assistantCloud = new AssistantCloud({
+  baseUrl: <your base url>,
+  anonymous: true,
+});
+```
+
+In this configuration, the `AssistantCloud` instance will automatically handle the process of obtaining and refreshing anonymous tokens.
